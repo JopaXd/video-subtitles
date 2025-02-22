@@ -44,7 +44,7 @@ def main():
 	output = "output.mp4"
 	subs = get_subtitles(vid)
 	print(subs["segments"])
-	#add_subtitles_to_video(vid, output, subs, translate="sr")
+	add_subtitles_to_video(vid, output, subs, translate="sr")
 	print("Subtitles added. Enjoy!")
 
 if __name__ == "__main__":
