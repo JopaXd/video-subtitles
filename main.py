@@ -1,8 +1,8 @@
 from typing import List, Dict, Optional, Tuple
+import pyopencl as cl
 import whisper
 import ffmpeg
 import requests
-import subprocess
 
 def get_video_resolution(video_path:str) -> Optional[Tuple[int, int]]:
 	try:
@@ -26,13 +26,13 @@ def get_subtitles(video_file:str, model:str="small") -> dict:
 def translate_subs(text:str, target_lang:str, source_lang:str="auto") -> str:
 	return requests.get(f"https://lingva.lunar.icu/api/v1/{source_lang}/{target_lang}/{text}").json()["translation"]
 
-def check_gpu() -> str:
-	result = subprocess.run(["lspci"], stdout=subprocess.PIPE)
-	gpus = result.stdout.decode().strip().split("\n")
-	for gpu in gpus:
-		if "NVIDIA" in gpu:
+#Grab first GPU capable of performing hardware acceleration
+def check_gpu() -> Optional[str]:
+	platforms = cl.get_platforms()
+	for platform in platforms:
+		if "NVIDIA" in platform.name:
 			return "nvidia"
-		elif "AMD" in gpu:
+		elif "AMD" in platform.name:
 			return "amd"
 	return None
 
@@ -41,10 +41,12 @@ def add_subtitles_to_video(video_file:str, output_file:str, subtitles:List[Dict]
 	if gpu_acceleration != False:
 		gpu = check_gpu()
 		if gpu == "nvidia":
-			hwaccel='cuda'
+			video_stream = ffmpeg.input(video_file, hwaccel="cuda").video
 		elif gpu == "amd":
-			hwaccel="opencl",
-		video_stream = ffmpeg.input(video_file, hwaccel=hwaccel).video
+			video_stream = ffmpeg.input(video_file, hwaccel="opencl").video
+		else:
+			print("GPU ACCELERATION NOT SUPPORTED! PROCEEDING WITHOUT.")
+			video_stream = ffmpeg.input(video_file).video
 	else:
 		video_stream = ffmpeg.input(video_file).video
 	audio_stream = ffmpeg.input(video_file).audio
@@ -56,10 +58,11 @@ def add_subtitles_to_video(video_file:str, output_file:str, subtitles:List[Dict]
 		video_stream = ffmpeg.drawtext(video_stream, text, x_position, y-70, box=1, boxcolor=box_color, boxborderw=boxborderw ,fontcolor=subtitle_color, fontsize=subtitle_fontsize, enable=f"between(t,{sub['start']},{sub['end']})")
 	if gpu_acceleration != False:
 		if gpu == "nvidia":
-			vcodec = "h264_nvenc"
+			stream = ffmpeg.output(video_stream, audio_stream, output_file, vcodec="h264_nvenc")
 		elif gpu == "amd":
-			vcodec="h264_amf"
-		stream = ffmpeg.output(video_stream, audio_stream, output_file, vcodec=vcodec)
+			stream = ffmpeg.output(video_stream, audio_stream, output_file, vcodec="h264_amf")
+		else:
+			stream = ffmpeg.output(video_stream, audio_stream, output_file)
 	else:
 		stream = ffmpeg.output(video_stream, audio_stream, output_file)
 	print(stream.compile())
