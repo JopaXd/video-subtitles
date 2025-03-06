@@ -3,6 +3,7 @@ import pyopencl as cl
 import whisper
 import ffmpeg
 import requests
+import os
 
 def get_video_resolution(video_path:str) -> Optional[Tuple[int, int]]:
 	try:
@@ -36,11 +37,10 @@ def check_gpu() -> Optional[str]:
 			return "amd"
 	return None
 
-def add_subtitles_to_video(video_file:str, output_file:str, subtitles:List[Dict], subtitle_fontsize:int=30, subtitle_color:str="white", box_color:str="black", font:str="LiberationSans", boxborderw:int=5, translate:str=None, gpu_acceleration:bool=False):
+def add_subtitles_to_video(video_file:str, output_file:str, subtitles:List[Dict], subtitle_fontsize:int=30, subtitle_color:str="white", box_color:str="black", boxborderw:int=5, translate:str=None, gpu_acceleration:bool=False):
 	x,y = get_video_resolution(video_file)
 	if gpu_acceleration != False:
-		gpu = check_gpu()
-		if gpu == "nvidia":
+		if (gpu := check_gpu()) == "nvidia":
 			video_stream = ffmpeg.input(video_file, hwaccel="cuda").video
 		elif gpu == "amd":
 			video_stream = ffmpeg.input(video_file, hwaccel="opencl").video
@@ -67,13 +67,16 @@ def add_subtitles_to_video(video_file:str, output_file:str, subtitles:List[Dict]
 		stream = ffmpeg.output(video_stream, audio_stream, output_file)
 	print(stream.compile())
 	stream.run()
+	print("Subtitles added. Enjoy!")
 
 def main():
 	vid = "vid_30.mp4"
 	output = "output.mp4"
+	if not os.path.exists(vid):
+		print("This path does not exist, exiting...")
+		return
 	subs = get_subtitles(vid)
 	add_subtitles_to_video(vid, output, subs, gpu_acceleration=True)
-	print("Subtitles added. Enjoy!")
 
 if __name__ == "__main__":
 	main()
