@@ -3,6 +3,7 @@ import pyopencl as cl
 import whisper
 import ffmpeg
 import requests
+import argparse
 import os
 
 def get_video_resolution(video_path:str) -> Optional[Tuple[int, int]]:
@@ -70,13 +71,20 @@ def add_subtitles_to_video(video_file:str, output_file:str, subtitles:List[Dict]
 	print("Subtitles added. Enjoy!")
 
 def main():
-	vid = "vid_30.mp4"
-	output = "output.mp4"
-	if not os.path.exists(vid):
+	parser = argparse.ArgumentParser(prog="AutoSubtitle", description="Adds subtitles to a video file automatically.")
+	parser.add_argument("filename", help="input file")
+	parser.add_argument("-o", "--output", help="Output path")
+	parser.add_argument("-l", "--language", help="Language of subtitles. (country code)", default=None)
+	parser.add_argument("-g", "--gpu", action="store_true", help="GPU Acceleration (Recommended if available)", default=False)
+	parser.add_argument("-c", "--color", help="Subtitle color", default="white")
+	parser.add_argument("-b", "--boxcolor", help="Subtitle box color", default="black")
+	parser.add_argument("-s", "--size", help="Font size of subtitles", default=30)
+	args = parser.parse_args()
+	if not os.path.exists(args.filename):
 		print("This path does not exist, exiting...")
 		return
-	subs = get_subtitles(vid)
-	add_subtitles_to_video(vid, output, subs, gpu_acceleration=True)
+	subs = get_subtitles(args.filename)
+	add_subtitles_to_video(args.filename, args.output, subs, gpu_acceleration=args.gpu, translate=args.language, subtitle_color=args.color, box_color=args.boxcolor, subtitle_fontsize=args.size)
 
 if __name__ == "__main__":
 	main()
